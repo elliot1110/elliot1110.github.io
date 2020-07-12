@@ -9,8 +9,8 @@
         },
         "sources": [
             {
-                "name": "ElLioT",
-                "url": "https://git.heroku.com/linestickersconverter.git",
+                "name": "linestickersconverter",
+                "url": "https://pypi.python.org/simple",
                 "verify_ssl": true
             }
         ]
