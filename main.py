@@ -48,22 +48,6 @@ def find_ex(string,key_string):
 
 
 
-def start(bot,update):
-	bot.sendMessage(chat_id = update.message.chat.id,
-						text = "這個Bot可以將Line上的貼圖轉換成telegram上的貼圖，將貼圖商店的網址貼上來就會自動轉換了\n"+)
-
-def help_(bot,update):
-
-	bot.sendMessage(chat_id = update.message.chat.id,
-					text = "直接傳網址給我就可以惹")
-	bot.sendMessage(chat_id = update.message.chat.id,
-					text = "如果是有錯誤或問題就找")
-def about(bot,update):
-	bot.sendMessage(chat_id = update.message.chat.id,
-						text = "https://github.com/elliot1110/elliot1110.github.io")
-
-
-
 
 
 
