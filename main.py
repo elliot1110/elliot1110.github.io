@@ -50,19 +50,17 @@ def find_ex(string,key_string):
 
 def start(bot,update):
 	bot.sendMessage(chat_id = update.message.chat.id,
-						text = "這個Bot可以將Line上的貼圖轉換成telegram上的貼圖，將貼圖商店的網址貼上來就會自動轉換了\n"+
-						"This bot can transform Line's stickers to Telegram's sticker. Post line-store's URL to convert.\n\n"+
-						"範例example：https://store.line.me/stickershop/product/3962468/ja")
+						text = "這個Bot可以將Line上的貼圖轉換成telegram上的貼圖，將貼圖商店的網址貼上來就會自動轉換了\n"+)
 
 def help_(bot,update):
 
 	bot.sendMessage(chat_id = update.message.chat.id,
-					text = "直接傳網址給我就可以惹\nJust send me the URL.\n\n像這個Like this:https://store.line.me/stickershop/product/3962468/ja")
+					text = "")
 	bot.sendMessage(chat_id = update.message.chat.id,
-					text = "如果是有錯誤或問題就找 @Homura343\nWhen in doubt, @Homura343 .")
+					text = "")
 def about(bot,update):
 	bot.sendMessage(chat_id = update.message.chat.id,
-						text = "Author:@Homura343\nGithub:https://github.com/Mescury/Teleline-sticker-converter\n")
+						text = "")
 
 
 
