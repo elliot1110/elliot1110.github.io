@@ -1,0 +1,18 @@
+[[source]]
+name = "ElLioT"
+url = "https://git.heroku.com/linestickersconverter.git"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+python-telegram-bot = "*"
+flask = "*"
+requests = "*"
+pillow = "*"
+numpy = "*"
+numba = "*"
+gunicorn = "*"
+
+[requires]
+python_version = "3.7"
