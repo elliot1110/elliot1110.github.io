@@ -55,12 +55,12 @@ def start(bot,update):
 def help_(bot,update):
 
 	bot.sendMessage(chat_id = update.message.chat.id,
-					text = "")
+					text = "直接傳網址給我就可以惹")
 	bot.sendMessage(chat_id = update.message.chat.id,
-					text = "")
+					text = "如果是有錯誤或問題就找")
 def about(bot,update):
 	bot.sendMessage(chat_id = update.message.chat.id,
-						text = "")
+						text = "https://github.com/elliot1110/elliot1110.github.io")
 
 
 
