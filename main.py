@@ -49,7 +49,7 @@ def find_ex(string,key_string):
 
 def start(bot,update):
 	bot.sendMessage(chat_id = update.message.chat.id,
-						text = "這個Bot可以將Line上的貼圖轉換成telegram上的貼圖，將貼圖商店的網址貼上來就會自動轉換了\n"+)
+						text = "這個Bot可以將Line上的貼圖轉換成telegram上的貼圖，將貼圖商店的網址貼上來就會自動轉換了\n")
 
 def help_(bot,update):
 
