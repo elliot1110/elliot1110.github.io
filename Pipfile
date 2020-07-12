@@ -1,18 +1,13 @@
 [[source]]
-name = "linestickersconverter"
-url = "https://pypi.python.org/simple"
+name = "pypi"
+url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+pytest = "*"
 
 [packages]
-python-telegram-bot = "*"
-flask = "*"
 requests = "*"
-pillow = "*"
-numpy = "*"
-numba = "*"
-gunicorn = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"
