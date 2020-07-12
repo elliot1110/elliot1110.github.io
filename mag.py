@@ -1,4 +1,3 @@
-import numpy as np
 from PIL import Image
 from numba import jit
 from numba import types
