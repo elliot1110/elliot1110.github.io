@@ -1,252 +1,206 @@
-from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler,Filters
+#coding = unicode
+import configparser
+from mag import handle_image
 import requests
-import os
-import uuid
-import zipfile
-import json
 from PIL import Image
-import logging
+import numpy as np
+from numba import jit
+from telegram.ext import Dispatcher, MessageHandler, Filters,CommandHandler
+from telegram import InlineKeyboardButton,InlineKeyboardMarkup
 import telegram
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from flask import Flask,request
+import logging
 import random
-from configparser import ConfigParser, SafeConfigParser
-import traceback
-from telegram.ext.dispatcher import run_async
-import threading
-
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+					level=logging.INFO)
+logger = logging.getLogger(__name__)
+config = configparser.ConfigParser()
+config.read('config.ini')
+app = Flask(__name__)
 bot = telegram.Bot(token=(config['TELEGRAM']['ACCESS_TOKEN']))
-URL = https://api.telegram.org/bot1187455488:AAHwFPfIL4t6MZoYLgjdzwbrVAhyOgiSPzM/setWebhook?url=https://081dd978.ngrok.io/hook
-#todo: animated url https://stickershop.line-scdn.net/stickershop/v1/sticker/{stickerid}/iPhone/sticker_animation@2x.png
 
-def randomEmoji():
-    emoji="😺😂🤣😇😉😋😌😍😘👀💪🤙🐶🐱🐭🐹🐰🐻🐼🐨🐯🦁🐮🐷🐽🐸🐵🦍🐔🐧🐦🐤🐣🐺🐥🦊🐗🐴🦓🦒🦌🦄🐝🐛🦋🐌🐢🐙🦑🐓🦇🐖🐎🐑🐏🐐🦏🐘🐫🐪🐄🐂🦔🐿🐃🐅🐆🐊🐇🐈🐋🐳🐩🐕🦉🐬🦈🐡🦆🦅🐟🐠🕊🌞🌝🌕🌍🌊⛄✈🚲🛵🏎🚗🚅🌈🗻"
-    return random.sample(emoji,1)[0]
+emojis = "😂😘😍😊😁☺️😔😄😭😒😳😜😉😃😢😝😱😡😏😞😅😚😌😀😋😆😐😕👍👌👿❤️🖤💤🎵🔞"
+def random_emoji():
+	return emojis[random.randint(0,len(emojis)-1)]
 
-def addStickerThread(bot,update,statusMsg,fid,stkId,emj):
-    try:
-        with zipfile.ZipFile(f"{fid}.zip",'r') as zip_ref:
-            zip_ref.extractall(fid)
-        statusMsg.edit_text(f"好窩我試試看！給我一點時間不要急～～\n不要做其他動作哦\n目前進度：分析貼圖包")
-        info=json.load(open(f"{fid}/productInfo.meta"))
-        enName=info['title']['en']
-        if 'zh-Hant' in info['title']:
-            twName=info['title']['zh-Hant']
-        else:
-            twName=enName
-        stkName=f"line{stkId}_by_{botName}"
-        try:
-            stkSet=bot.getStickerSet(stkName)
-            if len(stkSet.stickers)!=0:
-                statusMsg.edit_text(f"好窩我試試看！給我一點時間不要急～～\n不要做其他動作哦\n目前進度：更新貼圖集")
-                for stk in stkSet.stickers:
-                    bot.deleteStickerFromSet(stk.file_id)
-        except telegram.error.BadRequest:
-            pass
-        for i,s in enumerate(info['stickers']):
-            statusMsg.edit_text(f"好窩我試試看！給我一點時間不要急～～\n不要做其他動作哦\n目前進度：處理並上傳貼圖 ({i}/{len(info['stickers'])})")
-            img=Image.open(f"{fid}/{s['id']}@2x.png")
-            ratio=s['width']/s['height']
-            if s['width']>s['height']:
-                img=img.resize((512,int(512/ratio)))
-            else:
-                img=img.resize((int(512*ratio),512))
-            img.save(f"{fid}/{s['id']}@2x.png")
-            try:
-                bot.addStickerToSet(update.message.from_user.id,stkName,open(f"{fid}/{s['id']}@2x.png",'rb'),emj)
-            except telegram.error.BadRequest:
-                bot.createNewStickerSet(update.message.from_user.id,stkName,twName,open(f"{fid}/{s['id']}@2x.png",'rb'),emj)
-        statusMsg.edit_text(f'好惹！')
-        update.message.reply_html(f'給你 <a href="https://t.me/addstickers/{stkName}">{twName}</a> ！')
-    except Exception as e:
-        statusMsg.edit_text("啊ＧＧ，我有點壞掉了，你等等再試一次好嗎....\n"+str(e))
-        print(traceback.format_exc())
-    finally:
-        try:
-            import shutil
-            shutil.rmtree(fid)
-            os.remove(f"{fid}.zip")
-        except:
-            pass
 
-@run_async
+
+
+
+@jit(nopython=True)
+def find_sticker_sites(text):
+	all_sticker =  [""]
+	x = text.find('"mdCMN09Image"')
+	print(x)
+	while x!=-1:
+		#text = text[text[text.find('"mdCMN09Image"'):].find('https'):]
+		text = text[text.find('"mdCMN09Image"'):]
+		text = text[text.find('https'):]
+		add = text[:text.find(';')]
+		all_sticker.append(add)
+		x = text.find('"mdCMN09Image"')
+	return all_sticker[1:]
+
+
+
+def find_ex(string,key_string):
+	return string[string.find(key_string):]
+
+
+
 def start(bot,update):
-    update.message.reply_text("/add - 新增貼圖\n/upload - 上傳Line貼圖zip\n/delete - 刪除某個貼圖\n/purge - 清除貼圖集裡的全部貼圖\n/calcel - 取消")
+	bot.sendMessage(chat_id = update.message.chat.id,
+						text = "這個Bot可以將Line上的貼圖轉換成telegram上的貼圖，將貼圖商店的網址貼上來就會自動轉換了\n"+)
 
-@run_async
-def add(bot,update):
-    update.message.reply_text("好的，你要許願哪個貼圖？\n請告訴我 line 貼圖集的網址！\n要取消的話請叫我 /cancel")
-    return 0
+def help_(bot,update):
 
-@run_async
-def continueAdd(bot, update):
-    emj=randomEmoji()
-    try:
-        stkUrl=update.message.text
-        if "?" not in stkUrl:
-            rindex=stkUrl.rfind('/')
-            lindex=stkUrl.rfind('/',0,rindex)
-        else:
-            rindex=stkUrl.rfind("?")
-            lindex=stkUrl.rfind("/")
-        if rindex==-1 or lindex==-1:
-            update
-            return
-        stkId=stkUrl[lindex+1:rindex]
-        # stkId="10429834"
-        statusMsg=update.message.reply_text(f"好窩我試試看！給我一點時間不要急～～\n不要做其他動作哦")
-        statusMsg.edit_text(f"好窩我試試看！給我一點時間不要急～～\n不要做其他動作哦\n目前進度：抓取貼圖包")
-        myfile=requests.get(f"http://dl.stickershop.line.naver.jp/products/0/0/1/{stkId}/iphone/stickers@2x.zip")
-        fid=stkId
-        with open(f'{fid}.zip','wb') as file:
-            file.write(myfile.content)
-        t=threading.Thread(target=addStickerThread,args=(bot,update,statusMsg,fid,stkId,emj))
-        t.start()
-    except Exception as e:
-        update.message.reply_text("啊ＧＧ，我有點壞掉了，你等等再試一次好嗎....\n"+str(e))
-        print(traceback.format_exc())
-        try:
-            import shutil
-            shutil.rmtree(fid)
-            os.remove(f"{fid}.zip")
-        except:
-            pass    
-    return ConversationHandler.END
+	bot.sendMessage(chat_id = update.message.chat.id,
+					text = "")
+	bot.sendMessage(chat_id = update.message.chat.id,
+					text = "")
+def about(bot,update):
+	bot.sendMessage(chat_id = update.message.chat.id,
+						text = "")
 
-@run_async
-def upload(bot,update):
-    update.message.reply_text("好的，請上傳 line 貼圖集的 zip！\n要取消的話請叫我 /cancel")
-    return 0
 
-@run_async
-def continueUpload(bot, update):
-    emj=randomEmoji()
-    try:
-        statusMsg=update.message.reply_text(f"好窩我試試看！給我一點時間不要急～～\n不要做其他動作哦")
-        fid=str(uuid.uuid1())
-        statusMsg.edit_text(f"好窩我試試看！給我一點時間不要急～～\n不要做其他動作哦\n目前進度：取得貼圖包")
-        zipFile=update.message.document.get_file()
-        zipFile.download(f"{fid}.zip")
-        stkId=""
-        with zipfile.ZipFile(f"{fid}.zip",'r') as zip_ref:
-            zip_ref.extractall(fid)
-        # statusMsg.edit_text(f"好窩我試試看！給我一點時間不要急～～\n不要做其他動作哦\n目前進度：分析貼圖包")
-        if not os.path.exists(f"{fid}/productInfo.meta"):
-            update.message.reply_text("你上傳的東西好像不是Line的標準貼圖包哦，抱歉啦不能幫你了")
-            return ConversationHandler.END
-        info=json.load(open(f"{fid}/productInfo.meta"))
-        stkId=info['packageId']
-        t=threading.Thread(target=addStickerThread,args=(bot,update,statusMsg,fid,stkId,emj))
-        t.start()
-    except Exception as e:
-        update.message.reply_text("啊ＧＧ，我有點壞掉了，你等等再試一次好嗎....\n"+str(e))
-        print(traceback.format_exc())
-        try:
-            import shutil
-            shutil.rmtree(fid)
-            os.remove(f"{fid}.zip")
-        except:
-            pass  
-    return ConversationHandler.END
 
-@run_async
-def delete(bot,update):
-    if update.message.from_user.id not in adminId:
-        update.message.reply_text("泥素隨？？？？你不能做這件事餒")
-        return ConversationHandler.END
-    update.message.reply_text("把你要刪掉的貼圖傳給我吧！\n要取消的話請叫我 /cancel")
-    return 0
 
-@run_async
-def continueDelete(bot,update):
-    stickerToDelete=update.message.sticker.file_id
-    try:
-        bot.deleteStickerFromSet(stickerToDelete)
-        update.message.reply_text("好惹，我把他從貼圖集移除了")
-    except:
-        update.message.reply_text("抱歉....能力所及範圍外")
-    finally:
-        return ConversationHandler.END
 
-@run_async
-def purge(bot,update):
-    if update.message.from_user.id not in adminId:
-        update.message.reply_text("泥素隨？？？？你不能做這件事餒")
-        return ConversationHandler.END
-    update.message.reply_text("把你要清空的貼圖集中的一個貼圖傳給我吧！\n要取消的話請叫我 /cancel")
-    return 0
-    
-@run_async
-def continuePurge(bot,update):
-    stickerToDelete=update.message.sticker.set_name
-    try:
-        stkSet=bot.getStickerSet(stickerToDelete)
-        if len(stkSet.stickers)!=0:
-            for stk in stkSet.stickers:
-                bot.deleteStickerFromSet(stk.file_id)
-        update.message.reply_text("好惹，我把貼圖集清空了")
-    except:
-        update.message.reply_text("抱歉....能力所及範圍外")
-    finally:
-        return ConversationHandler.END
 
-@run_async
-def cancel(bot,update):
-    update.message.reply_text("好的 已經取消動作")
-    return ConversationHandler.END
 
-if __name__=="__main__":
 
-    cfg=SafeConfigParser(os.environ)
-    cfg.read('secret.cfg')
-    botName=cfg.get('DEFAULT','botName')
-    botToken=cfg.get('DEFAULT','botToken')
-    adminId=json.loads(cfg.get('DEFAULT','adminId'))
+@app.route('/hook', methods=['POST'])
+def webhook_handler():
+	if request.method == "POST":
+		update = telegram.Update.de_json(request.get_json(force=True), bot)
+		dispatcher.process_update(update)
+	return 'ok'
 
-    updater = Updater(botToken)
 
-    updater.dispatcher.add_handler(CommandHandler('start', start))
-    addHandler=ConversationHandler(
-        entry_points=[ CommandHandler('add',add)],
-        states={
-            0:[
-                MessageHandler(Filters.text,continueAdd)
-            ]
-        },
-        fallbacks=[CommandHandler('cancel',cancel)]
-    )
-    uploadHandler=ConversationHandler(
-        entry_points=[ CommandHandler('upload',upload)],
-        states={
-            0:[
-                MessageHandler(Filters.document.mime_type("multipart/x-zip"),continueUpload)
-            ]
-        },
-        fallbacks=[CommandHandler('cancel',cancel)]
-    )
-    deleteHandler=ConversationHandler(
-        entry_points=[ CommandHandler('delete',delete)],
-        states={
-            0:[
-                MessageHandler(Filters.sticker,continueDelete)
-            ]
-        },
-        fallbacks=[CommandHandler('cancel',cancel)]
-    )
-    purgeHandler=ConversationHandler(
-        entry_points=[ CommandHandler('purge',purge)],
-        states={
-            0:[
-                MessageHandler(Filters.sticker,continuePurge)
-            ]
-        },
-        fallbacks=[CommandHandler('cancel',cancel)]
-    )
+def reply_handler(bot, update):
 
-    updater.dispatcher.add_handler(addHandler)
-    updater.dispatcher.add_handler(uploadHandler)
-    updater.dispatcher.add_handler(deleteHandler)
-    updater.dispatcher.add_handler(purgeHandler)
-    updater.start_polling()
-    updater.idle()
+	text = update.message.text
+
+	main_message = bot.sendMessage(chat_id = update.message.chat.id,
+						text = "正在試試看這東西\n\nTrying this.").message_id
+	print(text)
+	try:
+		n = requests.get(text)
+	except:
+		bot.editMessageText(chat_id = update.message.chat.id,
+							message_id = main_message,
+							text = "無效網址\n\nInvalid URL")
+		return
+	print(n)
+	all_stickers = find_sticker_sites(n.text)
+	print(len(all_stickers))
+	if len(all_stickers)==0:
+		bot.editMessageText(chat_id = update.message.chat.id,
+						message_id = main_message,
+						text = "沒有找到任何Line貼圖？！\n\nCan't find any line sticker?!")
+		return
+	temp = text.find("product")
+	temp = text[temp+8:]
+	sticker_number = temp[:temp.find("/")]
+
+	title = find_ex(find_ex(n.text,"head"),"title")[6:find_ex(find_ex(n.text,"head"),"title")[:].find("LINE")-2]
+
+	#Check if sticker exist
+	try:
+		a = bot.getStickerSet(name="line"+str(sticker_number)+"_by_RekcitsEnilbot")
+		a_len = len(a.stickers)
+		status = 1
+	except:
+		a = 0
+		a_len=0
+		status = -1
+	if status == 1:
+		if len(a.stickers) != len(all_stickers):
+			bot.editMessageText(chat_id = update.message.chat.id,
+								message_id = main_message,
+								text = "貼圖包更新\n\nUpdate the sticker set.")
+		else:
+			bot.editMessageText(chat_id = update.message.chat.id,
+								message_id = main_message,
+								text = "總算找到了\nThis one?!"+"\n\nLine sticker number:"+str(sticker_number))
+
+			bot.sendSticker(chat_id = update.message.chat.id,
+						sticker = a.stickers[0].file_id,
+						reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(text = title,url="https://t.me/addstickers/"+"line"+str(sticker_number)+"_by_RekcitsEnilbot")]]))
+			return
+
+
+	temp_message = title+"\n發現"+str(len(all_stickers))+"張貼圖\n\nFound "+str(len(all_stickers))+" stickers\n"
+	temp_message2 = temp_message
+	for i in range(len(all_stickers)):
+		temp_message2 += "_"
+	temp_message2 += "0/" + str(len(all_stickers))
+	bot.editMessageText(chat_id = update.message.chat.id,
+						message_id = main_message,
+						text = temp_message2)
+	head_sticker=0
+	for i in range(a_len,len(all_stickers)):
+		z = requests.get(all_stickers[i]).content
+		open('temp.png', 'wb').write(z)
+		img = Image.open('temp.png').convert('RGBA')
+		arr = np.array(img)
+		mag=512/max(len(arr[0]),len(arr))
+		new_arr = handle_image(mag,arr)
+		Image.fromarray(new_arr, 'RGBA').save("output"+str(i)+".png")
+
+		sticker = bot.uploadStickerFile(user_id = update.message.from_user.id,
+								png_sticker=open("output"+str(i)+".png", 'rb')).file_id
+		if i==0 and status == -1:
+			head_sticker = sticker
+			bot.createNewStickerSet(user_id=update.message.from_user.id,
+									name = "line"+str(sticker_number)+"_by_RekcitsEnilbot",
+									title = title+" @RekcitsEnilbot",
+									png_sticker = sticker,
+									emojis = random_emoji())
+		else:
+			bot.addStickerToSet(user_id=update.message.from_user.id,
+								name = "line"+str(sticker_number)+"_by_RekcitsEnilbot",
+								png_sticker = sticker,
+								emojis = random_emoji())
+		'''bot.sendDocument(chat_id = update.message.chat.id, 
+						document = open("output"+str(i)+".png", 'rb'),
+						caption = "")'''
+		temp_message2 = temp_message
+		for j in range(i+1):
+			temp_message2 += "￭"
+		for j in range(len(all_stickers)-i-1):
+			temp_message2 += "_"
+		temp_message2 += str(i+1)+"/" + str(len(all_stickers))
+		bot.editMessageText(chat_id = update.message.chat.id,
+						message_id = main_message,
+						text = temp_message2)
+	bot.sendMessage(chat_id = update.message.chat.id,
+						text = "噠啦～☆\n\nFinished!"+"\n\nLine sticker number:"+str(sticker_number)+"https://t.me/addstickers/"+"line"+str(sticker_number)+"_by_RekcitsEnilbot")
+	bot.sendSticker(chat_id = update.message.chat.id,
+					sticker = head_sticker,
+					reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton(text = title,url="https://t.me/addstickers/"+"line"+str(sticker_number)+"_by_RekcitsEnilbot")]]))
+
+dispatcher = Dispatcher(bot, None)
+
+dispatcher.add_handler(CommandHandler('start',start))
+dispatcher.add_handler(CommandHandler('help',help_))
+dispatcher.add_handler(CommandHandler('about',about))
+dispatcher.add_handler(MessageHandler(Filters.text, reply_handler))
+
+if __name__ == "__main__":
+	app.run(debug=True)
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+
+'''
